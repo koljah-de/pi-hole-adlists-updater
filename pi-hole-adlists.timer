@@ -1,0 +1,13 @@
+[Unit]
+Description=Pi-hole update adlists timer
+Wants=network-online.target
+After=network.target network-online.target
+
+[Timer]
+OnCalendar=Sun *-*-* 0:00:00
+Unit=pi-hole-adlists.service
+Persistent=true
+RemainAfterElapse=true
+
+[Install]
+WantedBy=multi-user.target

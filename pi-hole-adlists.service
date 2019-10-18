@@ -1,0 +1,14 @@
+[Unit]
+Description=Pi-hole adlists updater
+Wants=network-online.target
+After=network.target network-online.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/bin/bash /usr/local/sbin/pi-hole-adlists.sh
+Restart=on-failure
+RestartSec=120s
+
+[Install]
+WantedBy=multi-user.target
