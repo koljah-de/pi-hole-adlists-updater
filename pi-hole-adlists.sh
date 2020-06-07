@@ -2,7 +2,6 @@
 
 # Add further local adlists files here. Use this method:
 # Beware: Do not add empty entries to the array!
-# This script overwrites: adlists.list adlists.list.old
 # adlists_local+=( "new_local_adlists_file" )
 adlists_local=( "/etc/pihole/adlists.list.default" )
 
@@ -11,9 +10,29 @@ adlists_local=( "/etc/pihole/adlists.list.default" )
 # adlists_online+=( "new_online_adlists" )
 adlists_online=( "https://v.firebog.net/hosts/lists.php?type=nocross" )
 
-adlists_list=""
+# This stores the adlists
+adlists_list=''
 
-# Add local adlists files.
+# Pi-hole databse
+database="/etc/pihole/gravity.db"
+
+# Check database access rights
+if ! [[ -r ${database} && -w ${database} ]]; then
+  echo "ERROR! Can't access database. Database does not exist or has wrong permissions."
+  echo "       Run this script as root or as the user who owns ${database}."
+  exit 1
+fi
+
+# Get adlists from database
+adlists_table="$(sqlite3 ${database} "SELECT address FROM adlist ORDER BY id ASC;")"
+
+# Increment the max id from the adlist table by 1
+id=$(($(sqlite3 ${database} "SELECT MAX(id) FROM adlist;")+1))
+
+# This value changes if the database has been modified.
+table_changed=0
+
+# Add local adlists files
 for ((i=0; i<${#adlists_local[@]}; i++)); do
   if [ -f ${adlists_local[$i]} ]; then
     if [ $((${#adlists_local[@]}-$i)) -gt 1 ] || [ ${#adlists_online[@]} -gt 0 ]; then
@@ -28,7 +47,7 @@ for ((i=0; i<${#adlists_local[@]}; i++)); do
   fi
 done
 
-# Get the online adlists.
+# Get the online adlists
 for ((i=0; i<${#adlists_online[@]}; i++)); do
   if [ $((${#adlists_online[@]}-$i)) -gt 1 ]; then
     adlists_list+="$(curl -sL ${adlists_online[$i]})\n"
@@ -43,34 +62,36 @@ for ((i=0; i<${#adlists_online[@]}; i++)); do
 done
 
 # Sort adlists and remove doubles and empty lines
-echo -e "$adlists_list" | sort -u > /tmp/adlists.list.new
-sed -ir '/^\s*$/d' /tmp/adlists.list.new
+adlists_list="$(echo -e "$adlists_list" | sort -u)"
+adlists_list="$(echo -e "$adlists_list" | sed -r '/^\s*$/d')"
 
-# Compare the old with the new one. If something has changed, backup the old one
-# and use the new one.
-if [ -f /etc/pihole/adlists.list ]; then
-  if $(cmp -s /tmp/adlists.list.new /etc/pihole/adlists.list); then
-    echo "Adlists are already up to date."
-    rm /tmp/adlists.list.new
-  else
-    echo "Adlists have been updated."
-    cp /etc/pihole/adlists.list /etc/pihole/adlists.list.old
-    mv /tmp/adlists.list.new /etc/pihole/adlists.list
-# Uncomment this if you want to update the gravity list, every time the adlists
-# have changed.
-#    chown $(stat -c "%U:%G" /etc/pihole/) /etc/pihole/adlists.list
-#    pihole -g
+# Add new adlists to database
+IFS=$'\n'
+for url in $(echo -e "${adlists_list}"); do
+  if ! $(echo -e "${adlists_table}" | grep -q "^${url}$"); then
+    sqlite3 ${database} "INSERT INTO adlist (id,address,enabled,date_added,date_modified,comment) VALUES (${id},\"${url}\",1,$(date +%s),$(date +%s),\"$(date "+%Y-%m-%d"): Added by pi-hole-adlists-updater\");"
+    ((id+=1))
+    table_changed=1
   fi
-elif [ -d /etc/pihole ]; then
+done
+
+# Disable adlists that no longer exist in any list.
+# Adlists that were added manually via AdminLTE are automatically disabled.
+# You have to add them to a local adlists file or add them via AdminLTE and comment this part.
+IFS=$'\n'
+for url in $(echo -e "${adlists_table}"); do
+  if ! $(echo -e "${adlists_list}" | grep -q "^${url}$"); then
+    sqlite3 ${database} "UPDATE adlist SET enabled = 0 WHERE address = \"${url}\";"
+    table_changed=1
+  fi
+done
+
+# Uncomment 'pihole -g' if you want to update the gravity list, every time the adlists have changed.
+if [ "${table_changed}" = 0 ]; then
+  echo "Adlists are already up to date."
+else
   echo "Adlists have been updated."
-  mv /tmp/adlists.list.new /etc/pihole/adlists.list
-# Uncomment this if you want to update the gravity list, every time the adlists
-# have changed.
-#  chown $(stat -c "%U:%G" /etc/pihole/) /etc/pihole/adlists.list
 #  pihole -g
 fi
-
-# Set the right user and group for the adlists.
-chown $(stat -c "%U:%G" /etc/pihole/) /etc/pihole/adlists.list*
 
 exit 0

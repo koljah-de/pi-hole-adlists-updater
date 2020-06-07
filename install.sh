@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-if [ $(id -u) -ne 0 ]; then
+if [ "$(id -u)" -ne 0 ]; then
   echo "ERROR! This script must be run as root."
   exit 1
 fi
@@ -12,6 +12,11 @@ fi
 
 if [ ! -d "/etc/pihole" ]; then
   echo "ERROR! Directory /etc/pihole does not exist."
+  exit 1
+fi
+
+if [ ! -f "/etc/pihole/gravity.db" ]; then
+  echo "ERROR! Pi-hole database /etc/pihole/gravity.db does not exist."
   exit 1
 fi
 

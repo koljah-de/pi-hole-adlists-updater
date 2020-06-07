@@ -1,25 +1,32 @@
 # pi-hole-adlists-updater
-**This automatically updates your local and online pi-hole adlists. Written in bash. Uses systemd.**
+
+**This Script automatically updates your local and online Pi-hole adlists. Written in bash. Uses systemd.**
+
+## Requirements
+
+Works only with Pi-hole 5.0 or later
 
 ## Note
 
-Please keep in mind, that this script backups and **overwrites** your existing */etc/pihole/adlists.list*. Configure *pi-hole-adlists.sh* properly to add your own sources of adlists.
+Please keep in mind, that this script edits your adlists database entries. Adlists that were added manually and do not exist in any list are automatically disabled. To add adlists manually, add them to a local adlists file. Configure *pi-hole-adlists.sh* properly to add your own sources of adlists.
 
 ## Install
 
-### Install with install.sh
+### Automated install (with install.sh)
 
-Run with sudo (download zip archive):
+Download the zip archive and run *install.sh* with sudo:
 ```
 cd /tmp && wget -q https://github.com/koljah-de/pi-hole-adlists-updater/archive/master.zip -O pi-hole-adlists-updater-master.zip && unzip -q pi-hole-adlists-updater-master.zip && cd pi-hole-adlists-updater-master && sudo ./install.sh && cd .. && rm -r pi-hole-adlists-updater-master*
 ```
 
-Or run with sudo (clone git repository):
+Or clone the git repository and run *install.sh* with sudo:
 ```
 cd /tmp && git clone https://github.com/koljah-de/pi-hole-adlists-updater.git && cd pi-hole-adlists-updater && sudo ./install.sh && cd .. && rm -rf pi-hole-adlists-updater
 ```
 
-Or download the sources, unzip them, change to the directory which you have just unzipped and run *install.sh* as root:
+### Install with install.sh
+
+Download the sources, unzip them, change to the directory which you have just unzipped and run *install.sh* as root:
 ```
 wget https://github.com/koljah-de/pi-hole-adlists-updater/archive/master.zip -O pi-hole-adlists-updater-master.zip
 unzip pi-hole-adlists-updater-master.zip
@@ -27,7 +34,7 @@ cd pi-hole-adlists-updater-master
 sudo ./install.sh
 ```
 
-Or clone the git repository, change to the directory which you have just cloned and run *install.sh* as root:
+Or Clone the git repository, change to the directory which you have just cloned and run *install.sh* as root:
 ```
 git clone git@github.com:koljah-de/pi-hole-adlists-updater.git
 cd pi-hole-adlists-updater
@@ -70,7 +77,6 @@ You may want to edit or add local adlists files. To do this edit *pi-hole-adlist
 ```
 # Add further local adlists files here. Use this method:
 # Beware: Do not add empty entries to the array!
-# This script overwrites: adlists.list adlists.list.old
 # adlists_local+=( "new_local_adlists_file" )
 adlists_local=( "/etc/pihole/adlists.list.default" )
 adlists_local+=( "path_to_adlists_file/adlists.file" )
@@ -85,9 +91,20 @@ adlists_online=( "https://v.firebog.net/hosts/lists.php?type=nocross" )
 adlists_online+=( "https://more_online_adlists" )
 ```
 
-## Adjust the time the script runs
+By default, the scipt disables adlists that do not exist in any list. To add lists manually, you have to add them to a local adlists file or add them via AdminLTE and comment this part in *pi-hole-adlists.sh*:
+```
+IFS=$'\n'
+for url in $(echo -e "${adlists_table}"); do
+  if ! $(echo -e "${adlists_list}" | grep -q "^${url}$"); then
+    sqlite3 ${database} "UPDATE adlist SET enabled = 0 WHERE address = \"${url}\";"
+    table_changed=1
+  fi
+done
+```
 
-*By default, the adlists are updated every Sunday at 0:00. The timer should run before your gravity is updated. Mine will be updated on Mondays at 0:00.*
+## Adjust the time, at which the script will be executed
+
+*By default, the adlists are updated every Sunday at 0:00. The timer should run before your gravity is updated.*
 
 To change the update time of adlists, edit *pi-hole-adlists.timer*:
 ```
@@ -97,15 +114,31 @@ OnCalendar=Sun *-*-* 0:00:00
 After this you must run:
 ```
 systemctl daemon-reload
+systemctl start pi-hole-adlists.timer
+```
+
+## Adjust the gravity update behavior
+By default, the gravity is updated by a cron job (*/etc/cron.d/pihole*) or (for Arch users) the *pi-hole-gravity.timer*. Additionally you can let the script update the gravity, everytime the adlists have changed.
+
+***IMPORTANT: To do this, you must let execute the script as root.***
+
+To achieve this behavior, you have to uncomment '*pihole -g*' in *pi-hole-adlists.sh*:
+```
+if [ "${table_changed}" = 0 ]; then
+  echo "Adlists are already up to date."
+else
+  echo "Adlists have been updated."
+#  pihole -g
+fi
 ```
 
 ## Adjust the user who runs the script
 
-*You don't need to do this. The script will set the right owner and group for the adlists.list files.*
+*You don't need to do this. By default, the script is executed as root.*
 
-If pihole-FTL is running as another user than root and owns /etc/pihole, you can edit the following line in *pi-hole-adlists.service*:
+If pihole is running as another user than root and owns `/etc/pihole`, you can edit the following line in *pi-hole-adlists.service*:
 ```
-User=user_that_runs_pihole-FTL_and_owns_directory
+User=user_that_runs_pihole_and_owns_directory
 ```
 
 You should then move `pi-hole-adlists.sh` to `/usr/local/bin` and edit the following line in *pi-hole-adlists.service*:
