@@ -1,6 +1,6 @@
-# pi-hole-adlists-updater
+# Pi-hole Adlists Updater
 
-**This Script automatically updates your local and online Pi-hole adlists. Written in bash. Uses systemd.**
+**This script automatically updates your local and online Pi-hole adlists. Written in bash. Uses systemd.**
 
 ## Requirements
 
@@ -118,7 +118,7 @@ systemctl start pi-hole-adlists.timer
 ```
 
 ## Adjust the gravity update behavior
-By default, the gravity is updated by a cron job (*/etc/cron.d/pihole*) or (for Arch users) the *pi-hole-gravity.timer*. Additionally you can let the script update the gravity, everytime the adlists have changed.
+By default, the gravity is updated by a cron job (*/etc/cron.d/pihole*) or (for Arch users) the *pi-hole-gravity.timer*. Additionally you can let the script update the gravity, every time the adlists have changed.
 
 ***IMPORTANT: To do this, you must let execute the script as root.***
 
