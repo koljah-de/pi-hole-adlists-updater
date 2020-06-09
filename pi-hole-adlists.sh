@@ -61,15 +61,15 @@ for ((i=0; i<${#adlists_online[@]}; i++)); do
   fi
 done
 
-# Sort adlists and remove doubles and empty lines
+# Cleanup adlists list: remove comments, doubles, empty lines and sort adlists
+adlists_list="$(echo -e "$adlists_list" | sed -r '/^[[:blank:]]*#/d;/^\s*$/d')"
 adlists_list="$(echo -e "$adlists_list" | sort -u)"
-adlists_list="$(echo -e "$adlists_list" | sed -r '/^\s*$/d')"
 
 # Add new adlists to database
 IFS=$'\n'
 for url in $(echo -e "${adlists_list}"); do
   if ! $(echo -e "${adlists_table}" | grep -q "^${url}$"); then
-    sqlite3 ${database} "INSERT INTO adlist (id,address,enabled,date_added,date_modified,comment) VALUES (${id},\"${url}\",1,$(date +%s),$(date +%s),\"$(date "+%Y-%m-%d"): Added by pi-hole-adlists-updater\");"
+    sqlite3 ${database} "INSERT INTO adlist (id,address,enabled,date_added,date_modified,comment) VALUES (${id},\"${url}\",1,$(date +%s),$(date +%s),\"$(date "+%Y-%m-%d"): Added by Pi-hole Adlists Updater\");"
     ((id+=1))
     table_changed=1
   fi
