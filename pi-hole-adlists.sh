@@ -80,7 +80,7 @@ done
 # You have to add them to a local adlists file or add them via AdminLTE and comment this part.
 IFS=$'\n'
 for url in $(echo -e "${adlists_table}"); do
-  if ! $(echo -e "${adlists_list}" | grep -q "^${url}$"); then
+  if ! $(echo -e "${adlists_list}" | grep -q "^${url}$") && [ "$(sqlite3 ${database} "SELECT enabled FROM adlist WHERE address = \"${url}\";")" = "1" ]; then
     sqlite3 ${database} "UPDATE adlist SET enabled = 0 WHERE address = \"${url}\";"
     table_changed=1
   fi
