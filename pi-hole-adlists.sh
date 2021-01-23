@@ -8,7 +8,7 @@ adlists_local=( "/etc/pihole/adlists.list.default" )
 # Add further online adlists here. Use this method:
 # Beware: Do not add empty entries to the array!
 # adlists_online+=( "new_online_adlists" )
-adlists_online=( "https://v.firebog.net/hosts/lists.php?type=nocross" )
+adlists_online=( "https://v.firebog.net/hosts/lists.php?type=tick" )
 
 # This stores the adlists
 adlists_list=''
